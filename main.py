@@ -20,7 +20,7 @@ def load_image(name, colorkey=None):
 class Hero(pygame.sprite.Sprite):
     def __init__(self, *group):
         super().__init__(*group)
-        self.image = load_image("goblin_run1.png", colorkey=-1)
+        self.image = load_image("idle.gif", colorkey=-1)
         self.rect = self.image.get_rect()
 
 
@@ -28,6 +28,7 @@ class Enemy(pygame.sprite.Sprite):
     def __init__(self, *group, hero):
         super().__init__(*group)
         self.image = load_image("goblin_run1.png", colorkey=-1)
+        self.image = pygame.transform.scale(self.image, (40, 50))
         self.rect = self.image.get_rect()
         self.rect.x = 600
         self.rect.y = 600
@@ -52,6 +53,7 @@ if __name__ == '__main__':
 
     running = True
     clock = pygame.time.Clock()
+    pygame.time.set_timer(pygame.USEREVENT, 5000)
 
     all_sprites = pygame.sprite.Group()
     hero = Hero()
@@ -65,6 +67,9 @@ if __name__ == '__main__':
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+
+            if event.type == pygame.USEREVENT:
+                all_sprites.add(Enemy(hero=hero))
 
         key_pressed_is = pygame.key.get_pressed()
 
