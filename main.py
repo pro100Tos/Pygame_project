@@ -2,6 +2,15 @@ import pygame, os, sys
 
 size_player = p_width, p_height = 30, 40
 
+def make_data(level):
+    data_level = []
+    for i in level:
+        s = ""
+        for j in i:
+            s += 30 * j
+        for j in range(26):
+            data_level.append(s)
+    return data_level
 
 def load_image(name, colorkey=None):
     fullname = os.path.join('images_data', name)
@@ -70,6 +79,8 @@ class Hero(pygame.sprite.Sprite):
         self.animCount = 0
         self.state = load_image("idle.png", colorkey=-1)
         self.rect = self.image.get_rect()
+        self.rect.x = 100
+        self.rect.y = 63
         self.run = [load_image("Push1.png", colorkey=-1), load_image("Push2.png", colorkey=-1),
                     load_image("Push3.png", colorkey=-1), load_image("Push4.png", colorkey=-1),
                     load_image("Push5.png", colorkey=-1), load_image("Push6.png", colorkey=-1),
@@ -92,9 +103,9 @@ class Hero(pygame.sprite.Sprite):
         if key_pressed_is[pygame.K_RIGHT]:
             self.rect.x += 3
             self.right = True
-        if key_pressed_is[pygame.K_UP]:
+        if key_pressed_is[pygame.K_UP] and data_level[self.rect.y + 42][self.rect.x + 15] == "*":
             self.rect.y -= 3
-        if key_pressed_is[pygame.K_DOWN]:
+        if key_pressed_is[pygame.K_DOWN] and data_level[self.rect.y + 52][self.rect.x + 15] == "*":
             self.rect.y += 3
 
     def update(self):
@@ -126,7 +137,7 @@ class Enemy(pygame.sprite.Sprite):
         self.image = pygame.transform.scale(self.image, size_player)
         self.rect = self.image.get_rect()
         self.rect.x = 600
-        self.rect.y = 600
+        self.rect.y = 400
         self.hero = hero
         self.left = False
         self.right = False
@@ -140,9 +151,9 @@ class Enemy(pygame.sprite.Sprite):
         if self.hero.rect.x < self.rect.x:
             self.rect.x -= 1
             self.left = True
-        if self.hero.rect.y > self.rect.y:
+        if self.hero.rect.y > self.rect.y and data_level[self.rect.y + 52][self.rect.x + 15] == "*":
             self.rect.y += 1
-        if self.hero.rect.y < self.rect.y:
+        if self.hero.rect.y < self.rect.y and data_level[self.rect.y + 52][self.rect.x + 15] == "*":
             self.rect.y -= 1
         if self.animCount + 1 >= 30:
             self.animCount = 0
@@ -209,7 +220,9 @@ if __name__ == '__main__':
     tile_width, tile_height = 30, 25
 
     title = True
-    level_x, level_y = generate_level(load_level('map.txt'))
+    level = load_level('map.txt')
+    data_level = make_data(level)
+    level_x, level_y = generate_level(level)
     tiles_group.draw(screen)
 
     while running:
