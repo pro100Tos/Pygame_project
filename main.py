@@ -88,16 +88,19 @@ class Hero(pygame.sprite.Sprite):
         self.left = False
         self.right = False
 
-        if key_pressed_is[pygame.K_LEFT]:
-            self.rect.x -= 3
-            self.left = True
-        if key_pressed_is[pygame.K_RIGHT]:
-            self.rect.x += 3
-            self.right = True
-        if key_pressed_is[pygame.K_UP] and level[(self.rect.y + 35) // 25][(self.rect.x + 15) // 30] == "*":
-            self.rect.y -= 3
-        if key_pressed_is[pygame.K_DOWN] and level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == "*":
+        if level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == ".":
             self.rect.y += 3
+        else:
+            if key_pressed_is[pygame.K_LEFT]:
+                self.rect.x -= 3
+                self.left = True
+            if key_pressed_is[pygame.K_RIGHT]:
+                self.rect.x += 3
+                self.right = True
+            if key_pressed_is[pygame.K_UP] and level[(self.rect.y + 35) // 25][(self.rect.x + 15) // 30] == "*":
+                self.rect.y -= 3
+            if key_pressed_is[pygame.K_DOWN] and level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == "*":
+                self.rect.y += 3
 
     def update(self):
         if self.animCount + 1 >= 32:
@@ -136,30 +139,33 @@ class Enemy(pygame.sprite.Sprite):
     def update(self):
         self.left = False
         self.right = False
-        if self.hero.rect.x > self.rect.x:
-            self.rect.x += 1
-            self.right = True
-        if self.hero.rect.x < self.rect.x:
-            self.rect.x -= 1
-            self.left = True
-        if self.hero.rect.y > self.rect.y and level[(self.rect.y + 35) // 25][(self.rect.x + 15) // 30] == "*":
+        if level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == ".":
             self.rect.y += 1
-        if self.hero.rect.y < self.rect.y and level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == "*":
-            self.rect.y -= 1
-        if self.animCount + 1 >= 30:
-            self.animCount = 0
-        if self.left:
-            self.image = self.run[self.animCount // 5]
-            self.image = pygame.transform.scale(self.image, size_player)
-            self.image = pygame.transform.flip(self.image, True, False)
-            self.animCount += 1
-        elif self.right:
-            self.image = self.run[self.animCount // 5]
-            self.image = pygame.transform.scale(self.image, size_player)
-            self.animCount += 1
         else:
-            self.image = self.state
-            self.image = pygame.transform.scale(self.image, size_player)
+            if self.hero.rect.x > self.rect.x:
+                self.rect.x += 1
+                self.right = True
+            if self.hero.rect.x < self.rect.x:
+                self.rect.x -= 1
+                self.left = True
+            if self.hero.rect.y < self.rect.y and level[(self.rect.y + 35) // 25][self.rect.x // 30] == "*":
+                self.rect.y -= 1
+            if self.hero.rect.y > self.rect.y and level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == "*":
+                self.rect.y += 1
+            if self.animCount + 1 >= 30:
+                self.animCount = 0
+            if self.left:
+                self.image = self.run[self.animCount // 5]
+                self.image = pygame.transform.scale(self.image, size_player)
+                self.image = pygame.transform.flip(self.image, True, False)
+                self.animCount += 1
+            elif self.right:
+                self.image = self.run[self.animCount // 5]
+                self.image = pygame.transform.scale(self.image, size_player)
+                self.animCount += 1
+            else:
+                self.image = self.state
+                self.image = pygame.transform.scale(self.image, size_player)
 
 
 class Tile(pygame.sprite.Sprite):
