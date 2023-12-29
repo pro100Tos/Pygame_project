@@ -2,15 +2,6 @@ import pygame, os, sys
 
 size_player = p_width, p_height = 30, 40
 
-def make_data(level):
-    data_level = []
-    for i in level:
-        s = ""
-        for j in i:
-            s += 30 * j
-        for j in range(26):
-            data_level.append(s)
-    return data_level
 
 def load_image(name, colorkey=None):
     fullname = os.path.join('images_data', name)
@@ -103,9 +94,9 @@ class Hero(pygame.sprite.Sprite):
         if key_pressed_is[pygame.K_RIGHT]:
             self.rect.x += 3
             self.right = True
-        if key_pressed_is[pygame.K_UP] and data_level[self.rect.y + 42][self.rect.x + 15] == "*":
+        if key_pressed_is[pygame.K_UP] and level[(self.rect.y + 35) // 25][(self.rect.x + 15) // 30] == "*":
             self.rect.y -= 3
-        if key_pressed_is[pygame.K_DOWN] and data_level[self.rect.y + 52][self.rect.x + 15] == "*":
+        if key_pressed_is[pygame.K_DOWN] and level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == "*":
             self.rect.y += 3
 
     def update(self):
@@ -151,9 +142,9 @@ class Enemy(pygame.sprite.Sprite):
         if self.hero.rect.x < self.rect.x:
             self.rect.x -= 1
             self.left = True
-        if self.hero.rect.y > self.rect.y and data_level[self.rect.y + 52][self.rect.x + 15] == "*":
+        if self.hero.rect.y > self.rect.y and level[(self.rect.y + 35) // 25][(self.rect.x + 15) // 30] == "*":
             self.rect.y += 1
-        if self.hero.rect.y < self.rect.y and data_level[self.rect.y + 52][self.rect.x + 15] == "*":
+        if self.hero.rect.y < self.rect.y and level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == "*":
             self.rect.y -= 1
         if self.animCount + 1 >= 30:
             self.animCount = 0
@@ -221,7 +212,6 @@ if __name__ == '__main__':
 
     title = True
     level = load_level('map.txt')
-    data_level = make_data(level)
     level_x, level_y = generate_level(level)
     tiles_group.draw(screen)
 
