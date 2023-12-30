@@ -1,4 +1,5 @@
 import pygame, os, sys
+from copy import deepcopy
 
 size_player = p_width, p_height = 30, 40
 
@@ -61,6 +62,58 @@ def generate_level(level):
             elif level[y][x] == '%':
                 Block('block', x, y)
     return x, y
+
+
+def navigation(level):
+    n = len(level)
+    m = len(level[0])
+    tile_mas1 = ".*"
+    tile_mas2 = "%#*"
+    main_data = [[[] for j in range(m)] for i in range(n)]
+    for i in range(n):
+        for j in range(m):
+            level_clone = deepcopy(level)
+            mas_for_main_data = [[[] for x in range(m)] for y in range(n)]
+            mas_for_main_data[i][j] = []
+            mas = [(i, j)]
+            while len(mas) > 0:
+                active_mas = []
+                for z in mas:
+                    y = z[0]
+                    x = z[1]
+                    reserv_MFMD = mas_for_main_data[y][x][:]
+                    if x > 0:
+                        if level_clone[y][x - 1] in tile_mas1 and level_clone[y + 1][x - 1] in tile_mas2:
+                            active_mas.append((y, x - 1))
+                            reserv_MFMD.append("left")
+                            mas_for_main_data[y][x - 1] = reserv_MFMD[:]
+                    reserv_MFMD = mas_for_main_data[y][x][:]
+                    if x < m - 1:
+                        if level_clone[y][x + 1] in tile_mas1 and level_clone[y + 1][x + 1] in tile_mas2:
+                            active_mas.append((y, x + 1))
+                            reserv_MFMD.append("right")
+                            mas_for_main_data[y][x + 1] = reserv_MFMD[:]
+                    reserv_MFMD = mas_for_main_data[y][x][:]
+                    try:
+                        if level_clone[y][x] in tile_mas1 and level_clone[y + 1][x] in tile_mas1:
+                            active_mas.append((y + 1, x))
+                            reserv_MFMD.append("down")
+                            mas_for_main_data[y + 1][x] = reserv_MFMD[:]
+                    except Exception:
+                        pass
+                    reserv_MFMD = mas_for_main_data[y][x][:]
+                    try:
+                        if level_clone[y][x] == "*" and level_clone[y - 1][x] in tile_mas1:
+                            active_mas.append((y - 1, x))
+                            reserv_MFMD.append("up")
+                            mas_for_main_data[y - 1][x] = reserv_MFMD[:]
+                    except Exception:
+                        pass
+                    level_clone[y] = level_clone[y][:x] + "0" + level_clone[y][x + 1:]
+                mas.clear()
+                mas = active_mas
+            main_data[i][j] = deepcopy(mas_for_main_data)
+    return main_data
 
 
 class Hero(pygame.sprite.Sprite):
@@ -130,8 +183,8 @@ class Enemy(pygame.sprite.Sprite):
                     load_image("goblin run5.png", colorkey=-1), load_image("goblin run6.png", colorkey=-1)]
         self.image = pygame.transform.scale(self.image, size_player)
         self.rect = self.image.get_rect()
-        self.rect.x = 600
-        self.rect.y = 400
+        self.rect.x = 300
+        self.rect.y = 510
         self.hero = hero
         self.left = False
         self.right = False
@@ -142,15 +195,21 @@ class Enemy(pygame.sprite.Sprite):
         if level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == ".":
             self.rect.y += 1
         else:
-            if self.hero.rect.x > self.rect.x:
+            location_enemy = ((self.rect.y + 41) // 25, (self.rect.x + 15) // 30)
+            location_hero = ((self.hero.rect.y + 41) // 25, (self.hero.rect.x + 15) // 30)
+            try:
+                move = navigation_data[location_enemy[0] - 1][location_enemy[1]][location_hero[0] - 1][location_hero[1]][0]
+            except Exception:
+                move = ""
+            if move == "right":
                 self.rect.x += 1
                 self.right = True
-            if self.hero.rect.x < self.rect.x:
+            if move == "left":
                 self.rect.x -= 1
                 self.left = True
-            if self.hero.rect.y < self.rect.y and level[(self.rect.y + 35) // 25][self.rect.x // 30] == "*":
+            if move == "up":
                 self.rect.y -= 1
-            if self.hero.rect.y > self.rect.y and level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == "*":
+            if move == "down":
                 self.rect.y += 1
             if self.animCount + 1 >= 30:
                 self.animCount = 0
@@ -218,6 +277,7 @@ if __name__ == '__main__':
 
     title = True
     level = load_level('map.txt')
+    navigation_data = navigation(level)
     level_x, level_y = generate_level(level)
     tiles_group.draw(screen)
 
