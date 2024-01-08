@@ -116,6 +116,13 @@ def navigation(level):
     return main_data
 
 
+def spritecollide_vertical(hero, sprite_group):
+    collide_list = pygame.sprite.spritecollide(hero, sprite_group, False)
+    for sprite in collide_list:
+        if (hero.rect.y + 37) > sprite.rect.y:
+            return True
+
+
 class Hero(pygame.sprite.Sprite):
     def __init__(self, *group):
         super().__init__(*group)
@@ -123,8 +130,10 @@ class Hero(pygame.sprite.Sprite):
         self.animCount = 0
         self.state = load_image("idle.png", colorkey=-1)
         self.rect = self.image.get_rect()
+        self.rect.height = 41
         self.rect.x = 100
-        self.rect.y = 63
+        self.speed = 5
+        self.rect.y = 50
         self.run = [load_image("Push1.png", colorkey=-1), load_image("Push2.png", colorkey=-1),
                     load_image("Push3.png", colorkey=-1), load_image("Push4.png", colorkey=-1),
                     load_image("Push5.png", colorkey=-1), load_image("Push6.png", colorkey=-1),
@@ -140,20 +149,24 @@ class Hero(pygame.sprite.Sprite):
         key_pressed_is = pygame.key.get_pressed()
         self.left = False
         self.right = False
-
-        if level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == ".":
-            self.rect.y += 3
+        if not pygame.sprite.spritecollideany(self, tiles_group):
+            self.rect = self.rect.move(0, self.speed)
         else:
+            if pygame.sprite.spritecollideany(self, ladder_group):
+                if key_pressed_is[pygame.K_UP]:
+                    self.rect = self.rect.move(0, -self.speed)
+                if key_pressed_is[pygame.K_DOWN] and not pygame.sprite.spritecollideany(self, wall_group):
+                    self.rect = self.rect.move(0, self.speed)
             if key_pressed_is[pygame.K_LEFT]:
-                self.rect.x -= 3
+                self.rect = self.rect.move(-self.speed, 0)
+                if spritecollide_vertical(self, wall_group):
+                    self.rect = self.rect.move(self.speed, 0)
                 self.left = True
             if key_pressed_is[pygame.K_RIGHT]:
-                self.rect.x += 3
+                self.rect = self.rect.move(self.speed, 0)
+                if spritecollide_vertical(self, wall_group):
+                    self.rect = self.rect.move(-self.speed, 0)
                 self.right = True
-            if key_pressed_is[pygame.K_UP] and level[(self.rect.y + 35) // 25][(self.rect.x + 15) // 30] == "*":
-                self.rect.y -= 3
-            if key_pressed_is[pygame.K_DOWN] and level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == "*":
-                self.rect.y += 3
 
     def update(self):
         if self.animCount + 1 >= 32:
@@ -183,8 +196,10 @@ class Enemy(pygame.sprite.Sprite):
                     load_image("goblin run5.png", colorkey=-1), load_image("goblin run6.png", colorkey=-1)]
         self.image = pygame.transform.scale(self.image, size_player)
         self.rect = self.image.get_rect()
+        self.rect.height = 41
         self.rect.x = 300
         self.rect.y = 510
+        self.speed = 3
         self.hero = hero
         self.left = False
         self.right = False
@@ -192,8 +207,8 @@ class Enemy(pygame.sprite.Sprite):
     def update(self):
         self.left = False
         self.right = False
-        if level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == ".":
-            self.rect.y += 1
+        if not pygame.sprite.spritecollideany(self, tiles_group):
+            self.rect = self.rect.move(0, self.speed)
         else:
             location_enemy = ((self.rect.y + 41) // 25, (self.rect.x + 15) // 30)
             location_hero = ((self.hero.rect.y + 41) // 25, (self.hero.rect.x + 15) // 30)
@@ -202,15 +217,15 @@ class Enemy(pygame.sprite.Sprite):
             except Exception:
                 move = ""
             if move == "right":
-                self.rect.x += 1
+                self.rect = self.rect.move(self.speed, 0)
                 self.right = True
             if move == "left":
-                self.rect.x -= 1
+                self.rect = self.rect.move(-self.speed, 0)
                 self.left = True
             if move == "up":
-                self.rect.y -= 1
+                self.rect = self.rect.move(0, -self.speed)
             if move == "down":
-                self.rect.y += 1
+                self.rect = self.rect.move(0, self.speed)
             if self.animCount + 1 >= 30:
                 self.animCount = 0
             if self.left:
@@ -238,16 +253,19 @@ class Tile(pygame.sprite.Sprite):
 class Wall(Tile):
     def __init__(self, tile_type, pos_x, pos_y):
         super().__init__(tile_type, pos_x, pos_y)
+        self.add(wall_group)
 
 
 class Ladder(Tile):
     def __init__(self, tile_type, pos_x, pos_y):
         super().__init__(tile_type, pos_x, pos_y)
+        self.add(ladder_group)
 
 
 class Block(Tile):
     def __init__(self, tile_type, pos_x, pos_y):
         super().__init__(tile_type, pos_x, pos_y)
+        self.add(wall_group)
 
 
 if __name__ == '__main__':
@@ -258,10 +276,13 @@ if __name__ == '__main__':
 
     running = True
     clock = pygame.time.Clock()
+    FPS = 50
     pygame.time.set_timer(pygame.USEREVENT, 5000)
 
     all_sprites = pygame.sprite.Group()
     tiles_group = pygame.sprite.Group()
+    wall_group = pygame.sprite.Group()
+    ladder_group = pygame.sprite.Group()
     hero = Hero()
     all_sprites.add(hero)
     enemy = Enemy(hero=hero)
@@ -299,5 +320,6 @@ if __name__ == '__main__':
         all_sprites.update()
 
         pygame.display.flip()
+        clock.tick(FPS)
 
     pygame.quit()
