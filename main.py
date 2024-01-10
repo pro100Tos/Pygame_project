@@ -25,6 +25,13 @@ all_sprites = pygame.sprite.Group()
 tiles_group = pygame.sprite.Group()
 coins_group = pygame.sprite.Group()
 
+count_coin = 0
+
+def print_collected_coins():
+    print(f"Coins Collected: {count_coin}")
+    conn.close()
+    sys.exit()
+
 class Coin(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__(all_sprites, coins_group)
@@ -45,11 +52,14 @@ class Coin(pygame.sprite.Sprite):
                 coins_group.remove(self)
 
 def check_coin_collection(player):
+    global count_coin
     collected_coins = pygame.sprite.spritecollide(player, coins_group, True)
+    count_coin += len(collected_coins)
     for coin in collected_coins:
         x_db = coin.x_db
         y_db = coin.y_db
-
+        # код для удаления монеты с экрана, если нужно
+        all_sprites.remove(coin)
 
 def generate_coins_around_walls():
     for _ in range(NUMBER_OF_COINS):
@@ -127,7 +137,7 @@ def generate_level(level):
                 add_coin_to_db(x, y)  # Добавление монетки в базу данных
 
     # Генерация случайных местоположений монет
-    for _ in range(10):  # Измените количество монет по вашему желанию
+    for _ in range(10):
         rand_x = random.randint(0, len(level[0]) - 1)
         rand_y = random.randint(0, len(level) - 1)
         while level[rand_y][rand_x] != '.':
@@ -305,7 +315,17 @@ class Enemy(pygame.sprite.Sprite):
                 self.image = self.state
                 self.image = pygame.transform.scale(self.image, size_player)
 
-
+            for coin in coins_group:
+                # Проверка расстояния между героем и монетой
+                distance = pygame.math.Vector2(coin.rect.center).distance_to(pygame.math.Vector2(self.rect.center))
+                if 0 < distance < 50:  # расстояние = 50 пикселей
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_g:
+                            coins_group.remove(coin)
+                            remove_coin_from_db(coin.x_db, coin.y_db)
+                            #  увеличиваем счетчик собранных монет
+                            global count_coin
+                            count_coin += 1
 class Tile(pygame.sprite.Sprite):
     def __init__(self, tile_type, pos_x, pos_y):
         super().__init__(tiles_group, all_sprites)
@@ -363,15 +383,15 @@ if __name__ == '__main__':
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                terminate()
+                print_collected_coins()
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_g:
                     check_coin_collection(hero)
+
         clock.tick(32)
         if not running:
-            print(f"Coins Collected: {hero.coins_collected}")
-            conn.close()  # Закрытие базы данных
-            sys.exit()
+            print_collected_coins()
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
