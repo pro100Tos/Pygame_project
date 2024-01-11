@@ -1,7 +1,55 @@
 import pygame, os, sys
+import random
+import sqlite3
 from copy import deepcopy
 
 size_player = p_width, p_height = 30, 40
+
+conn = sqlite3.connect("coins.db")
+cursor = conn.cursor()
+
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS coins (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        x INTEGER,
+        y INTEGER
+    )
+''')
+conn.commit()
+
+coins_group = pygame.sprite.Group()
+
+count_coin = 0
+
+
+class Coin(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        super().__init__(all_sprites, coins_group)
+        original_image = load_image("gift.jpg", colorkey=-1)
+        self.image = pygame.transform.scale(original_image, (30, 40))
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.x_db = x // tile_width
+        self.y_db = y // tile_height
+        add_coin_to_db(self.x_db, self.y_db)
+        self.collected = False
+
+
+def generate_coins_around_walls():
+    for _ in range(NUMBER_OF_COINS):
+        rand_x = random.randint(1, WIDTH - 2)  # Генерация координат в пределах ширины минус 2
+        rand_y = random.randint(1, HEIGHT - 2)  # Генерация координат в пределах высоты минус 2
+        if level[rand_y][rand_x] == '.':
+            Coin(rand_x * tile_width, rand_y * tile_height)
+
+
+def add_coin_to_db(x, y):
+    conn = sqlite3.connect("coins.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO coins (x, y) VALUES (?, ?)", (x, y))
+    conn.commit()
+    conn.close()
 
 
 def load_image(name, colorkey=None):
@@ -61,6 +109,16 @@ def generate_level(level):
                 Ladder('ladder', x, y)
             elif level[y][x] == '%':
                 Block('block', x, y)
+
+    # Генерация случайных местоположений монет
+    for _ in range(10):
+        rand_x = random.randint(0, len(level[0]) - 1)
+        rand_y = random.randint(1, len(level) - 2)
+        while level[rand_y][rand_x] in "*#%" or level[rand_y + 1][rand_x] in '*.':
+            rand_x = random.randint(0, len(level[0]) - 1)
+            rand_y = random.randint(1, len(level) - 2)
+        Coin(rand_x * tile_width, rand_y * tile_height)
+        add_coin_to_db(rand_x, rand_y)
     return x, y
 
 
@@ -83,13 +141,15 @@ def navigation(level):
                     x = z[1]
                     reserv_MFMD = mas_for_main_data[y][x][:]
                     if x > 0:
-                        if level_clone[y][x - 1] in tile_mas1 and level_clone[y + 1][x - 1] in tile_mas2:
+                        if level_clone[y][x - 1] in tile_mas1 and (level_clone[y + 1][x - 1] in tile_mas2 \
+                                or level_clone[y + 1][x] in tile_mas2):
                             active_mas.append((y, x - 1))
                             reserv_MFMD.append("left")
                             mas_for_main_data[y][x - 1] = reserv_MFMD[:]
                     reserv_MFMD = mas_for_main_data[y][x][:]
                     if x < m - 1:
-                        if level_clone[y][x + 1] in tile_mas1 and level_clone[y + 1][x + 1] in tile_mas2:
+                        if level_clone[y][x + 1] in tile_mas1 and (level_clone[y + 1][x + 1] in tile_mas2 \
+                                or level_clone[y + 1][x] in tile_mas2):
                             active_mas.append((y, x + 1))
                             reserv_MFMD.append("right")
                             mas_for_main_data[y][x + 1] = reserv_MFMD[:]
@@ -116,6 +176,15 @@ def navigation(level):
     return main_data
 
 
+def spritecollide_vertical(hero, sprite_group):
+    collide_list = pygame.sprite.spritecollide(hero, sprite_group, False)
+    for sprite in collide_list:
+        if sprite_group == coins_group:
+            return sprite
+        if (hero.rect.y + 37) > sprite.rect.y:
+            return True
+
+
 class Hero(pygame.sprite.Sprite):
     def __init__(self, *group):
         super().__init__(*group)
@@ -123,8 +192,10 @@ class Hero(pygame.sprite.Sprite):
         self.animCount = 0
         self.state = load_image("idle.png", colorkey=-1)
         self.rect = self.image.get_rect()
+        self.rect.height = 41
         self.rect.x = 100
-        self.rect.y = 63
+        self.speed = 5
+        self.rect.y = 50
         self.run = [load_image("Push1.png", colorkey=-1), load_image("Push2.png", colorkey=-1),
                     load_image("Push3.png", colorkey=-1), load_image("Push4.png", colorkey=-1),
                     load_image("Push5.png", colorkey=-1), load_image("Push6.png", colorkey=-1),
@@ -140,20 +211,29 @@ class Hero(pygame.sprite.Sprite):
         key_pressed_is = pygame.key.get_pressed()
         self.left = False
         self.right = False
-
         if level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == ".":
-            self.rect.y += 3
+            self.rect = self.rect.move(0, self.speed)
         else:
+            if pygame.sprite.spritecollideany(self, ladder_group):
+                if key_pressed_is[pygame.K_UP] and level[(self.rect.y + 35) // 25][(self.rect.x + 15) // 30] == "*":
+                    self.rect = self.rect.move(0, -self.speed)
+                if key_pressed_is[pygame.K_DOWN] and level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == "*":
+                    self.rect = self.rect.move(0, self.speed)
             if key_pressed_is[pygame.K_LEFT]:
-                self.rect.x -= 3
+                self.rect = self.rect.move(-self.speed, 0)
+                if spritecollide_vertical(self, wall_group):
+                    self.rect = self.rect.move(self.speed, 0)
                 self.left = True
             if key_pressed_is[pygame.K_RIGHT]:
-                self.rect.x += 3
+                self.rect = self.rect.move(self.speed, 0)
+                if spritecollide_vertical(self, wall_group):
+                    self.rect = self.rect.move(-self.speed, 0)
                 self.right = True
-            if key_pressed_is[pygame.K_UP] and level[(self.rect.y + 35) // 25][(self.rect.x + 15) // 30] == "*":
-                self.rect.y -= 3
-            if key_pressed_is[pygame.K_DOWN] and level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == "*":
-                self.rect.y += 3
+            coin = spritecollide_vertical(hero, coins_group)
+            if coin:
+                global count_coin
+                count_coin += 1
+                coin.kill()
 
     def update(self):
         if self.animCount + 1 >= 32:
@@ -183,8 +263,10 @@ class Enemy(pygame.sprite.Sprite):
                     load_image("goblin run5.png", colorkey=-1), load_image("goblin run6.png", colorkey=-1)]
         self.image = pygame.transform.scale(self.image, size_player)
         self.rect = self.image.get_rect()
+        self.rect.height = 41
         self.rect.x = 300
         self.rect.y = 510
+        self.speed = 3
         self.hero = hero
         self.left = False
         self.right = False
@@ -192,25 +274,30 @@ class Enemy(pygame.sprite.Sprite):
     def update(self):
         self.left = False
         self.right = False
-        if level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == ".":
-            self.rect.y += 1
+        if not pygame.sprite.spritecollideany(self, tiles_group):
+            self.rect = self.rect.move(0, self.speed)
         else:
             location_enemy = ((self.rect.y + 41) // 25, (self.rect.x + 15) // 30)
             location_hero = ((self.hero.rect.y + 41) // 25, (self.hero.rect.x + 15) // 30)
             try:
-                move = navigation_data[location_enemy[0] - 1][location_enemy[1]][location_hero[0] - 1][location_hero[1]][0]
+                move = \
+                navigation_data[location_enemy[0] - 1][location_enemy[1]][location_hero[0] - 1][location_hero[1]][0]
             except Exception:
                 move = ""
             if move == "right":
-                self.rect.x += 1
+                self.rect = self.rect.move(self.speed, 0)
+                if spritecollide_vertical(self, wall_group):
+                    self.rect = self.rect.move(0, -self.speed)
                 self.right = True
             if move == "left":
-                self.rect.x -= 1
+                self.rect = self.rect.move(-self.speed, 0)
+                if spritecollide_vertical(self, wall_group):
+                    self.rect = self.rect.move(0, -self.speed)
                 self.left = True
             if move == "up":
-                self.rect.y -= 1
+                self.rect = self.rect.move(0, -self.speed)
             if move == "down":
-                self.rect.y += 1
+                self.rect = self.rect.move(0, self.speed)
             if self.animCount + 1 >= 30:
                 self.animCount = 0
             if self.left:
@@ -238,16 +325,19 @@ class Tile(pygame.sprite.Sprite):
 class Wall(Tile):
     def __init__(self, tile_type, pos_x, pos_y):
         super().__init__(tile_type, pos_x, pos_y)
+        self.add(wall_group)
 
 
 class Ladder(Tile):
     def __init__(self, tile_type, pos_x, pos_y):
         super().__init__(tile_type, pos_x, pos_y)
+        self.add(ladder_group)
 
 
 class Block(Tile):
     def __init__(self, tile_type, pos_x, pos_y):
         super().__init__(tile_type, pos_x, pos_y)
+        self.add(wall_group)
 
 
 if __name__ == '__main__':
@@ -258,10 +348,13 @@ if __name__ == '__main__':
 
     running = True
     clock = pygame.time.Clock()
+    FPS = 50
     pygame.time.set_timer(pygame.USEREVENT, 5000)
 
     all_sprites = pygame.sprite.Group()
     tiles_group = pygame.sprite.Group()
+    wall_group = pygame.sprite.Group()
+    ladder_group = pygame.sprite.Group()
     hero = Hero()
     all_sprites.add(hero)
     enemy = Enemy(hero=hero)
@@ -286,6 +379,7 @@ if __name__ == '__main__':
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                print(count_coin)
                 terminate()
 
             if event.type == pygame.USEREVENT:
@@ -299,5 +393,6 @@ if __name__ == '__main__':
         all_sprites.update()
 
         pygame.display.flip()
+        clock.tick(FPS)
 
     pygame.quit()
