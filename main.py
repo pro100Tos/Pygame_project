@@ -417,11 +417,6 @@ def main_menu():
 
 
 def start_game():
-    pygame.init()
-    pygame.display.set_caption('runner')
-    size = width, height = 840, 600
-    screen = pygame.display.set_mode(size)
-
     running = True
     clock = pygame.time.Clock()
     FPS = 50
