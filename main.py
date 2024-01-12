@@ -3,6 +3,61 @@ import random
 import sqlite3
 from copy import deepcopy
 
+
+class ImageButtton:
+    def __init__(self, x, y, width, height, text, image_path, hover_image_path=None, sound_path=None):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.text = text
+
+        self.image = load_image(image_path, colorkey=-1)
+        self.image = pygame.transform.scale(self.image, (width, height))
+        self.hover_image = self.image
+
+        if hover_image_path:
+            self.hover_image = load_image(hover_image_path, colorkey=-1)
+            self.hover_image = pygame.transform.scale(self.hover_image, (width, height))
+
+        self.rect = self.image.get_rect(topleft=(x, y))
+        self.sound = None
+
+        if sound_path:
+            self.sound = pygame.mixer.Sound(sound_path)
+
+        self.is_hovered = False
+
+    def draw(self, screen):
+        current_image = self.hover_image if self.is_hovered else self.image
+        screen.blit(current_image, self.rect.topleft)
+
+        font = pygame.font.Font(None, 36)
+        text_surface = font.render(self.text, True, (255, 255, 255))
+        text_rect = text_surface.get_rect(center=self.rect.center)
+        screen.blit(text_surface, text_rect)
+
+    def check_hover(self, mouse_pos):
+        self.is_hovered = self.rect.collidepoint(mouse_pos)
+
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and self.is_hovered:
+            if self.sound:
+                self.sound.play()
+            pygame.event.post(pygame.event.Event(pygame.USEREVENT, button=self))
+
+
+def show_buttons(buttons, screen):
+    for button in buttons:
+        button.check_hover(pygame.mouse.get_pos())
+        button.draw(screen)
+
+
+def work_buttons(buttons, event):
+    for button in buttons:
+        button.handle_event(event)
+
+
 size_player = p_width, p_height = 30, 40
 
 conn = sqlite3.connect("coins.db")
@@ -340,7 +395,28 @@ class Block(Tile):
         self.add(wall_group)
 
 
-if __name__ == '__main__':
+def main_menu():
+    running = True
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+
+            if event.type == pygame.USEREVENT and event.button == start_button:
+                start_game()
+
+            work_buttons(all_buttons, event)
+
+        screen.fill((0, 0, 0))
+
+        show_buttons(all_buttons, screen)
+        pygame.display.flip()
+
+    pygame.quit()
+
+
+def start_game():
     pygame.init()
     pygame.display.set_caption('runner')
     size = width, height = 840, 600
@@ -350,6 +426,44 @@ if __name__ == '__main__':
     clock = pygame.time.Clock()
     FPS = 50
     pygame.time.set_timer(pygame.USEREVENT, 5000)
+
+    while running:
+        clock.tick(32)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                print(count_coin)
+                terminate()
+
+            if event.type == pygame.USEREVENT:
+                all_sprites.add(Enemy(hero=hero))
+
+        screen.fill((0, 0, 0))
+
+        all_sprites.draw(screen)
+
+        hero.draw_run()
+        all_sprites.update()
+
+        pygame.display.flip()
+        clock.tick(FPS)
+
+    pygame.quit()
+
+if __name__ == '__main__':
+    pygame.init()
+    pygame.display.set_caption('runner')
+    size = width, height = 840, 600
+    screen = pygame.display.set_mode(size)
+
+    start_button = ImageButtton(width / 2 - (300 / 2), 100, 300, 74, "Начать игру", "buttons1.png", "buttons2.png",
+                                None)
+    record_button = ImageButtton(width / 2 - (300 / 2), 200, 300, 74, "Рекорды", "buttons1.png", "buttons2.png", None)
+    setings_button = ImageButtton(width / 2 - (300 / 2), 300, 300, 74, "Настройки", "buttons1.png", "buttons2.png",
+                                  None)
+    rule_button = ImageButtton(width / 2 - (300 / 2), 400, 300, 74, "Помощь", "buttons1.png", "buttons2.png", None)
+
+    all_buttons = [start_button, record_button, setings_button, rule_button]
 
     all_sprites = pygame.sprite.Group()
     tiles_group = pygame.sprite.Group()
@@ -374,25 +488,4 @@ if __name__ == '__main__':
     level_x, level_y = generate_level(level)
     tiles_group.draw(screen)
 
-    while running:
-        clock.tick(32)
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                print(count_coin)
-                terminate()
-
-            if event.type == pygame.USEREVENT:
-                all_sprites.add(Enemy(hero=hero))
-
-        screen.fill((0, 0, 0))
-
-        all_sprites.draw(screen)
-
-        hero.draw_run()
-        all_sprites.update()
-
-        pygame.display.flip()
-        clock.tick(FPS)
-
-    pygame.quit()
+    main_menu()
