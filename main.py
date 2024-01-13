@@ -295,10 +295,11 @@ class Hero(pygame.sprite.Sprite):
         key_pressed_is = pygame.key.get_pressed()
         self.left = False
         self.right = False
-
+        flag_stack = True
         if level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == "." or \
                 (not pygame.sprite.spritecollideany(self, tiles_group)):
             self.rect = self.rect.move(0, self.speed)
+            flag_stack = False
         else:
             if pygame.sprite.spritecollideany(self, ladder_group):
                 if key_pressed_is[pygame.K_UP] and level[(self.rect.y + 35) // 25][(self.rect.x + 15) // 30] == "*":
@@ -322,6 +323,8 @@ class Hero(pygame.sprite.Sprite):
                 global count_coin
                 count_coin += 1
                 coin.kill()
+        if spritecollide_vertical(self, wall_group) and flag_stack:
+            self.rect = self.rect.move(0, -self.speed)
 
     def crash_block(self):
         if pygame.sprite.spritecollideany(self, tiles_group):
@@ -393,7 +396,6 @@ class Enemy(pygame.sprite.Sprite):
                 navigation_data[location_enemy[0] - 1][location_enemy[1]][location_hero[0] - 1][location_hero[1]][0]
             except Exception:
                 move = ""
-            flag_stack = True
             if move == "right":
                 self.rect = self.rect.move(self.speed, 0)
                 if spritecollide_vertical(self, wall_group):
