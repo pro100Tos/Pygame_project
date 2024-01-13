@@ -270,9 +270,11 @@ def spritecollide_vertical(hero, sprite_group):
 class Hero(pygame.sprite.Sprite):
     def __init__(self, *group):
         super().__init__(*group)
+        self.course = "right"
         self.image = load_image("idle.png", colorkey=-1)
         self.animCount = 0
-        self.state = load_image("idle.png", colorkey=-1)
+        self.state_r = load_image("idle.png", colorkey=-1)
+        self.state_l = load_image("idle_left.png", colorkey=-1)
         self.rect = self.image.get_rect()
         self.rect.height = 41
         self.rect.x = 100
@@ -285,7 +287,7 @@ class Hero(pygame.sprite.Sprite):
                     load_image("Push9.png", colorkey=-1), load_image("Push10.png", colorkey=-1),
                     load_image("Push11.png", colorkey=-1), load_image("Push12.png", colorkey=-1),
                     load_image("Push13.png", colorkey=-1), load_image("Push14.png", colorkey=-1),
-                    load_image("Push15.png", colorkey=-1), load_image("Push16.png", colorkey=-1),]
+                    load_image("Push15.png", colorkey=-1), load_image("Push16.png", colorkey=-1), ]
         self.left = False
         self.right = False
 
@@ -293,7 +295,9 @@ class Hero(pygame.sprite.Sprite):
         key_pressed_is = pygame.key.get_pressed()
         self.left = False
         self.right = False
-        if level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == ".":
+
+        if level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == "." or \
+                (not pygame.sprite.spritecollideany(self, tiles_group)):
             self.rect = self.rect.move(0, self.speed)
         else:
             if pygame.sprite.spritecollideany(self, ladder_group):
@@ -306,16 +310,38 @@ class Hero(pygame.sprite.Sprite):
                 if spritecollide_vertical(self, wall_group):
                     self.rect = self.rect.move(self.speed, 0)
                 self.left = True
+                self.course = "left"
             if key_pressed_is[pygame.K_RIGHT]:
                 self.rect = self.rect.move(self.speed, 0)
                 if spritecollide_vertical(self, wall_group):
                     self.rect = self.rect.move(-self.speed, 0)
                 self.right = True
+                self.course = "right"
             coin = spritecollide_vertical(self, coins_group)
             if coin:
                 global count_coin
                 count_coin += 1
                 coin.kill()
+
+    def crash_block(self):
+        if pygame.sprite.spritecollideany(self, tiles_group):
+            bottom_block = pygame.sprite.spritecollide(self, tiles_group, False)[0]
+            if bottom_block not in wall_group:
+                return
+            remove_block = []
+            if self.course == "right":
+                remove_block = list(filter(lambda sprite: sprite.rect.x == (
+                            bottom_block.rect.x + 30) and sprite.rect.y == bottom_block.rect.y, wall_group))
+            elif self.course == "left":
+                remove_block = list(filter(lambda sprite: sprite.rect.x == (
+                            bottom_block.rect.x - 30) and sprite.rect.y == bottom_block.rect.y, wall_group))
+            if not remove_block:
+                return
+
+            if str(remove_block[0].__class__) == "<class '__main__.Wall'>":
+                remove_stack.append(remove_block)
+                remove_block[0].kill()
+
 
     def update(self):
         if self.animCount + 1 >= 32:
@@ -330,7 +356,7 @@ class Hero(pygame.sprite.Sprite):
             self.image = pygame.transform.scale(self.image, size_player)
             self.animCount += 1
         else:
-            self.image = self.state
+            self.image = self.state_r if self.course == "right" else self.state_l
             self.image = pygame.transform.scale(self.image, size_player)
 
 
@@ -367,6 +393,7 @@ class Enemy(pygame.sprite.Sprite):
                 navigation_data[location_enemy[0] - 1][location_enemy[1]][location_hero[0] - 1][location_hero[1]][0]
             except Exception:
                 move = ""
+            flag_stack = True
             if move == "right":
                 self.rect = self.rect.move(self.speed, 0)
                 if spritecollide_vertical(self, wall_group):
@@ -381,6 +408,8 @@ class Enemy(pygame.sprite.Sprite):
                 self.rect = self.rect.move(0, -self.speed)
             if move == "down":
                 self.rect = self.rect.move(0, self.speed)
+            if move == "" and spritecollide_vertical(self, wall_group):
+                self.rect = self.rect.move(0, -self.speed)
             if self.animCount + 1 >= 30:
                 self.animCount = 0
             if self.left:
@@ -430,7 +459,7 @@ def main_menu():
 
 
 def start_game():
-    global count_coin
+    global count_coin, remove_stack
     running = True
 
     conn = sqlite3.connect("coins.db")
@@ -457,6 +486,8 @@ def start_game():
 
     clock = pygame.time.Clock()
     FPS = 50
+    MYEVENTTYPE = pygame.USEREVENT + 1
+    pygame.time.set_timer(MYEVENTTYPE, 10000)
 
     while running:
         clock.tick(32)
@@ -469,6 +500,20 @@ def start_game():
                 hero.kill()
                 enemy.kill()
                 game_over()
+
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    hero.crash_block()
+
+            if event.type == MYEVENTTYPE:
+                if remove_stack:
+                    return_sprite = remove_stack[0]
+                    remove_stack = remove_stack[1:]
+                    tiles_group.add(return_sprite)
+                    wall_group.add(return_sprite)
+                    all_sprites.add(return_sprite)
+                    pygame.time.set_timer(MYEVENTTYPE, 0)
+                    pygame.time.set_timer(MYEVENTTYPE, 10000)
 
         screen.fill((0, 0, 0))
 
@@ -518,6 +563,7 @@ def game_over():
 def prepare_start_programm():
     global all_sprites, tiles_group, wall_group, ladder_group, tile_images, tile_width, tile_height, title, level
     global navigation_data, level_x, level_y, start_button, record_button, setings_button, rule_button, back_button
+    global remove_stack
     start_button = ImageButtton(width / 2 - (300 / 2), 100, 300, 74, "Начать игру", "buttons1.png", "buttons2.png",
                                 None)
     record_button = ImageButtton(width / 2 - (300 / 2), 200, 300, 74, "Рекорды", "buttons1.png", "buttons2.png", None)
@@ -531,6 +577,7 @@ def prepare_start_programm():
     tiles_group = pygame.sprite.Group()
     wall_group = pygame.sprite.Group()
     ladder_group = pygame.sprite.Group()
+    remove_stack = []
 
     tile_images = {
         'wall': load_image_data_tile('brick_2.png'),
