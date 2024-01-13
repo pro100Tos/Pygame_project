@@ -437,10 +437,19 @@ def check_end(data):
     return False
 
 
+def draw_text_for_help(text):
+    count_s = 1
+    for string in text.split("\n"):
+        font = pygame.font.Font(None, 42)
+        text_surface = font.render(string, True, (255, 255, 255))
+        text_rect = text_surface.get_rect(center=(width / 2, (count_s * 35) + 100))
+        screen.blit(text_surface, text_rect)
+        count_s += 1
+
+
 def main_menu():
-    prepare_start_programm()
     running = True
-    all_buttons = [start_button, record_button, setings_button, rule_button]
+    all_buttons = [start_button, record_button, setings_button, help_button]
 
     while running:
         for event in pygame.event.get():
@@ -449,6 +458,9 @@ def main_menu():
 
             if event.type == pygame.USEREVENT and event.button == start_button:
                 start_game()
+
+            if event.type == pygame.USEREVENT and event.button == help_button:
+                help_menu()
 
             work_buttons(all_buttons, event)
 
@@ -462,6 +474,7 @@ def main_menu():
 
 def start_game():
     global count_coin, remove_stack
+    prepare_start_programm()
     running = True
 
     conn = sqlite3.connect("coins.db")
@@ -562,18 +575,36 @@ def game_over():
     pygame.quit()
 
 
+def help_menu():
+    running = True
+    all_buttons = [back_button]
+    with open("explanatory_note.txt", encoding="UTF-8") as file:
+        text = file.read()
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+
+            if event.type == pygame.USEREVENT and event.button == back_button:
+                main_menu()
+
+            work_buttons(all_buttons, event)
+
+        screen.fill((0, 0, 0))
+
+        draw_text_for_help(text)
+
+        show_buttons(all_buttons, screen)
+
+        pygame.display.flip()
+
+    pygame.quit()
+
+
 def prepare_start_programm():
     global all_sprites, tiles_group, wall_group, ladder_group, tile_images, tile_width, tile_height, title, level
-    global navigation_data, level_x, level_y, start_button, record_button, setings_button, rule_button, back_button
-    global remove_stack
-    start_button = ImageButtton(width / 2 - (300 / 2), 100, 300, 74, "Начать игру", "buttons1.png", "buttons2.png",
-                                None)
-    record_button = ImageButtton(width / 2 - (300 / 2), 200, 300, 74, "Рекорды", "buttons1.png", "buttons2.png", None)
-    setings_button = ImageButtton(width / 2 - (300 / 2), 300, 300, 74, "Настройки", "buttons1.png", "buttons2.png",
-                                  None)
-    rule_button = ImageButtton(width / 2 - (300 / 2), 400, 300, 74, "Помощь", "buttons1.png", "buttons2.png", None)
-    back_button = ImageButtton(width / 2 - (300 / 2), 320, 300, 74, "В главное меню", "buttons1.png", "buttons2.png",
-                               None)
+    global navigation_data, level_x, level_y, remove_stack
 
     all_sprites = pygame.sprite.Group()
     tiles_group = pygame.sprite.Group()
@@ -601,5 +632,13 @@ if __name__ == '__main__':
     pygame.display.set_caption('runner')
     size = width, height = 840, 600
     screen = pygame.display.set_mode(size)
+    start_button = ImageButtton(width / 2 - (300 / 2), 100, 300, 74, "Начать игру", "buttons1.png", "buttons2.png",
+                                None)
+    record_button = ImageButtton(width / 2 - (300 / 2), 200, 300, 74, "Рекорды", "buttons1.png", "buttons2.png", None)
+    setings_button = ImageButtton(width / 2 - (300 / 2), 300, 300, 74, "Настройки", "buttons1.png", "buttons2.png",
+                                  None)
+    help_button = ImageButtton(width / 2 - (300 / 2), 400, 300, 74, "Помощь", "buttons1.png", "buttons2.png", None)
+    back_button = ImageButtton(width / 2 - (300 / 2), 380, 300, 74, "В главное меню", "buttons1.png", "buttons2.png",
+                               None)
 
     main_menu()
