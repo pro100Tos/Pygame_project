@@ -61,15 +61,16 @@ def work_buttons(buttons, event):
 size_player = p_width, p_height = 30, 40
 
 conn = sqlite3.connect("coins.db")
+
 cursor = conn.cursor()
 
 cursor.execute('''
-    CREATE TABLE IF NOT EXISTS coins (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        x INTEGER,
-        y INTEGER
-    )
-''')
+        CREATE TABLE IF NOT EXISTS coins (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            x INTEGER,
+            y INTEGER
+        )
+    ''')
 conn.commit()
 
 coins_group = pygame.sprite.Group()
@@ -231,6 +232,32 @@ def navigation(level):
     return main_data
 
 
+class Tile(pygame.sprite.Sprite):
+    def __init__(self, tile_type, pos_x, pos_y):
+        super().__init__(tiles_group, all_sprites)
+        self.image = tile_images[tile_type]
+        self.rect = self.image.get_rect().move(
+            tile_width * pos_x, tile_height * pos_y)
+
+
+class Wall(Tile):
+    def __init__(self, tile_type, pos_x, pos_y):
+        super().__init__(tile_type, pos_x, pos_y)
+        self.add(wall_group)
+
+
+class Ladder(Tile):
+    def __init__(self, tile_type, pos_x, pos_y):
+        super().__init__(tile_type, pos_x, pos_y)
+        self.add(ladder_group)
+
+
+class Block(Tile):
+    def __init__(self, tile_type, pos_x, pos_y):
+        super().__init__(tile_type, pos_x, pos_y)
+        self.add(wall_group)
+
+
 def spritecollide_vertical(hero, sprite_group):
     collide_list = pygame.sprite.spritecollide(hero, sprite_group, False)
     for sprite in collide_list:
@@ -284,7 +311,7 @@ class Hero(pygame.sprite.Sprite):
                 if spritecollide_vertical(self, wall_group):
                     self.rect = self.rect.move(-self.speed, 0)
                 self.right = True
-            coin = spritecollide_vertical(hero, coins_group)
+            coin = spritecollide_vertical(self, coins_group)
             if coin:
                 global count_coin
                 count_coin += 1
@@ -325,6 +352,7 @@ class Enemy(pygame.sprite.Sprite):
         self.hero = hero
         self.left = False
         self.right = False
+        self.end = False
 
     def update(self):
         self.left = False
@@ -367,36 +395,21 @@ class Enemy(pygame.sprite.Sprite):
             else:
                 self.image = self.state
                 self.image = pygame.transform.scale(self.image, size_player)
+        if pygame.sprite.spritecollideany(self, [self.hero]):
+            self.end = True
 
 
-class Tile(pygame.sprite.Sprite):
-    def __init__(self, tile_type, pos_x, pos_y):
-        super().__init__(tiles_group, all_sprites)
-        self.image = tile_images[tile_type]
-        self.rect = self.image.get_rect().move(
-            tile_width * pos_x, tile_height * pos_y)
-
-
-class Wall(Tile):
-    def __init__(self, tile_type, pos_x, pos_y):
-        super().__init__(tile_type, pos_x, pos_y)
-        self.add(wall_group)
-
-
-class Ladder(Tile):
-    def __init__(self, tile_type, pos_x, pos_y):
-        super().__init__(tile_type, pos_x, pos_y)
-        self.add(ladder_group)
-
-
-class Block(Tile):
-    def __init__(self, tile_type, pos_x, pos_y):
-        super().__init__(tile_type, pos_x, pos_y)
-        self.add(wall_group)
+def check_end(data):
+    for enemy in data:
+        if enemy.end:
+            return True
+    return False
 
 
 def main_menu():
+    prepare_start_programm()
     running = True
+    all_buttons = [start_button, record_button, setings_button, rule_button]
 
     while running:
         for event in pygame.event.get():
@@ -417,21 +430,45 @@ def main_menu():
 
 
 def start_game():
+    global count_coin
     running = True
+
+    conn = sqlite3.connect("coins.db")
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS coins (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            x INTEGER,
+            y INTEGER
+        )
+    ''')
+    conn.commit()
+
+    coins_group = pygame.sprite.Group()
+
+    count_coin = 0
+
+    hero = Hero()
+    all_sprites.add(hero)
+    enemy = Enemy(hero=hero)
+    all_enemy = [enemy]
+    all_sprites.add(enemy)
+
     clock = pygame.time.Clock()
     FPS = 50
-    pygame.time.set_timer(pygame.USEREVENT, 5000)
 
     while running:
         clock.tick(32)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                print(count_coin)
                 terminate()
 
-            if event.type == pygame.USEREVENT:
-                all_sprites.add(Enemy(hero=hero))
+            if check_end(all_enemy):
+                hero.kill()
+                enemy.kill()
+                game_over()
 
         screen.fill((0, 0, 0))
 
@@ -445,29 +482,55 @@ def start_game():
 
     pygame.quit()
 
-if __name__ == '__main__':
-    pygame.init()
-    pygame.display.set_caption('runner')
-    size = width, height = 840, 600
-    screen = pygame.display.set_mode(size)
 
+def game_over():
+    running = True
+    all_buttons = [back_button]
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+
+            if event.type == pygame.USEREVENT and event.button == back_button:
+                main_menu()
+
+            work_buttons(all_buttons, event)
+
+        screen.fill((0, 0, 0))
+
+        font = pygame.font.Font(None, 42)
+        text_surface = font.render("К сожалению вас поймали гоблины, ваш счёт:", True, (255, 255, 255))
+        text_rect = text_surface.get_rect(center=(width / 2, 200))
+        screen.blit(text_surface, text_rect)
+        point_font = pygame.font.Font(None, 72)
+        point_text_surface = point_font.render(str(count_coin), True, (255, 255, 255))
+        point_text_rect = point_text_surface.get_rect(center=(width / 2, 270))
+        screen.blit(point_text_surface, point_text_rect)
+
+        show_buttons(all_buttons, screen)
+
+        pygame.display.flip()
+
+    pygame.quit()
+
+
+def prepare_start_programm():
+    global all_sprites, tiles_group, wall_group, ladder_group, tile_images, tile_width, tile_height, title, level
+    global navigation_data, level_x, level_y, start_button, record_button, setings_button, rule_button, back_button
     start_button = ImageButtton(width / 2 - (300 / 2), 100, 300, 74, "Начать игру", "buttons1.png", "buttons2.png",
                                 None)
     record_button = ImageButtton(width / 2 - (300 / 2), 200, 300, 74, "Рекорды", "buttons1.png", "buttons2.png", None)
     setings_button = ImageButtton(width / 2 - (300 / 2), 300, 300, 74, "Настройки", "buttons1.png", "buttons2.png",
                                   None)
     rule_button = ImageButtton(width / 2 - (300 / 2), 400, 300, 74, "Помощь", "buttons1.png", "buttons2.png", None)
-
-    all_buttons = [start_button, record_button, setings_button, rule_button]
+    back_button = ImageButtton(width / 2 - (300 / 2), 320, 300, 74, "В главное меню", "buttons1.png", "buttons2.png",
+                               None)
 
     all_sprites = pygame.sprite.Group()
     tiles_group = pygame.sprite.Group()
     wall_group = pygame.sprite.Group()
     ladder_group = pygame.sprite.Group()
-    hero = Hero()
-    all_sprites.add(hero)
-    enemy = Enemy(hero=hero)
-    all_sprites.add(enemy)
 
     tile_images = {
         'wall': load_image_data_tile('brick_2.png'),
@@ -482,5 +545,12 @@ if __name__ == '__main__':
     navigation_data = navigation(level)
     level_x, level_y = generate_level(level)
     tiles_group.draw(screen)
+
+
+if __name__ == '__main__':
+    pygame.init()
+    pygame.display.set_caption('runner')
+    size = width, height = 840, 600
+    screen = pygame.display.set_mode(size)
 
     main_menu()
