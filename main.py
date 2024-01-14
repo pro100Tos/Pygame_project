@@ -108,6 +108,14 @@ def add_coin_to_db(x, y):
     conn.close()
 
 
+def delete_coin_data_in_db():
+    conn = sqlite3.connect("coins.db")
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM coins")
+    conn.commit()
+    conn.close()
+
+
 def load_image(name, colorkey=None):
     fullname = os.path.join('images_data', name)
     if not os.path.isfile(fullname):
@@ -259,10 +267,13 @@ class Block(Tile):
 
 
 def spritecollide_vertical(hero, sprite_group):
+    global count_coin
     collide_list = pygame.sprite.spritecollide(hero, sprite_group, False)
     for sprite in collide_list:
-        if sprite_group == coins_group:
-            return sprite
+        if sprite_group == coins_group and (hero.rect.y + 37) > sprite.rect.y:
+            count_coin += 1
+            sprite.kill()
+            return True
         if (hero.rect.y + 37) > sprite.rect.y:
             return True
 
@@ -318,11 +329,9 @@ class Hero(pygame.sprite.Sprite):
                     self.rect = self.rect.move(-self.speed, 0)
                 self.right = True
                 self.course = "right"
-            coin = spritecollide_vertical(self, coins_group)
-            if coin:
-                global count_coin
-                count_coin += 1
-                coin.kill()
+
+            spritecollide_vertical(self, coins_group)
+
         if spritecollide_vertical(self, wall_group) and flag_stack:
             self.rect = self.rect.move(0, -self.speed)
 
@@ -439,21 +448,97 @@ def check_end(data):
 
 def draw_text_for_help(text):
     count_s = 1
-    for string in text.split("\n"):
+    for one_string in text.split("\n"):
         font = pygame.font.Font(None, 42)
-        text_surface = font.render(string, True, (255, 255, 255))
+        text_surface = font.render(one_string, True, (255, 255, 255))
         text_rect = text_surface.get_rect(center=(width / 2, (count_s * 35) + 100))
         screen.blit(text_surface, text_rect)
         count_s += 1
 
 
-def main_menu():
+def draw_text_for_results():
+    count_s = 1
+    for number in range(1, 6):
+        font = pygame.font.Font(None, 42)
+        text_surface = font.render(str(number) + ")", True, (255, 255, 255))
+        text_rect = text_surface.get_rect(center=(width / 2 - 200, (count_s * 35) + 135))
+        screen.blit(text_surface, text_rect)
+        count_s += 1
+
+
+def add_new_results_to_db(new_points):
+    conn = sqlite3.connect("records.db")
+    cursor = conn.cursor()
+
+    data = cursor.execute("SELECT * FROM results").fetchall()
+    if len(data) < 5:
+        cursor.execute("INSERT INTO results(points) VALUES (?)", (new_points,))
+    else:
+        min_points = 0
+        min_id = 1
+        for id, points in data:
+            if min_id == id:
+                min_points = points
+            else:
+                if min_points > points:
+                    min_points = points
+                    min_id = id
+        if new_points > min_points:
+            cursor.execute("UPDATE results SET points = (?) WHERE id == (?)", (new_points, min_id))
+    conn.commit()
+    conn.close()
+
+
+def get_results():
+    conn = sqlite3.connect("records.db")
+    cursor = conn.cursor()
+
+    data = sorted(list(map(lambda x: x[0], cursor.execute("SELECT points FROM results").fetchall())), reverse=-1)
+    return data
+
+
+def results_menu():
     running = True
-    all_buttons = [start_button, record_button, setings_button, help_button]
+    all_buttons = [back_button]
+    text = "5 Лучших результатов:"
+    for points in get_results():
+        if points > 1 or points == 0:
+            if points < 5:
+                text += "\n" + "собранно " + str(points) + " подарка"
+            else:
+                text += "\n" + "собранно " + str(points) + " подарков"
+        else:
+            text += "\n" + "собран " + str(points) + " подарок"
 
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                terminate()
+
+            if event.type == pygame.USEREVENT and event.button == back_button:
+                main_menu()
+
+            work_buttons(all_buttons, event)
+
+        screen.fill((0, 0, 0))
+
+        draw_text_for_results()
+        draw_text_for_help(text)
+
+        show_buttons(all_buttons, screen)
+
+        pygame.display.flip()
+
+    pygame.quit()
+
+
+def main_menu():
+    running = True
+    all_buttons = [start_button, record_button, help_button, exit_button]
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT or (event.type == pygame.USEREVENT and event.button == exit_button):
                 terminate()
 
             if event.type == pygame.USEREVENT and event.button == start_button:
@@ -461,6 +546,9 @@ def main_menu():
 
             if event.type == pygame.USEREVENT and event.button == help_button:
                 help_menu()
+
+            if event.type == pygame.USEREVENT and event.button == record_button:
+                results_menu()
 
             work_buttons(all_buttons, event)
 
@@ -512,6 +600,8 @@ def start_game():
                 terminate()
 
             if check_end(all_enemy):
+                delete_coin_data_in_db()
+                add_new_results_to_db(count_coin)
                 hero.kill()
                 enemy.kill()
                 game_over()
@@ -533,7 +623,7 @@ def start_game():
         screen.fill((0, 0, 0))
 
         all_sprites.draw(screen)
-
+        print(count_coin)
         hero.draw_run()
         all_sprites.update()
 
@@ -544,6 +634,7 @@ def start_game():
 
 
 def game_over():
+    global count_coin
     running = True
     all_buttons = [back_button]
 
@@ -553,6 +644,7 @@ def game_over():
                 terminate()
 
             if event.type == pygame.USEREVENT and event.button == back_button:
+                count_coin = 0
                 main_menu()
 
             work_buttons(all_buttons, event)
@@ -635,9 +727,9 @@ if __name__ == '__main__':
     start_button = ImageButtton(width / 2 - (300 / 2), 100, 300, 74, "Начать игру", "buttons1.png", "buttons2.png",
                                 None)
     record_button = ImageButtton(width / 2 - (300 / 2), 200, 300, 74, "Рекорды", "buttons1.png", "buttons2.png", None)
-    setings_button = ImageButtton(width / 2 - (300 / 2), 300, 300, 74, "Настройки", "buttons1.png", "buttons2.png",
+    help_button = ImageButtton(width / 2 - (300 / 2), 300, 300, 74, "Помощь", "buttons1.png", "buttons2.png", None)
+    exit_button = ImageButtton(width / 2 - (300 / 2), 400, 300, 74, "Выход", "buttons1.png", "buttons2.png",
                                   None)
-    help_button = ImageButtton(width / 2 - (300 / 2), 400, 300, 74, "Помощь", "buttons1.png", "buttons2.png", None)
     back_button = ImageButtton(width / 2 - (300 / 2), 380, 300, 74, "В главное меню", "buttons1.png", "buttons2.png",
                                None)
 
