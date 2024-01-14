@@ -713,7 +713,7 @@ def prepare_start_programm():
     tile_width, tile_height = 30, 25
 
     title = True
-    level = load_level('map.txt')
+    level = load_level('level_3.txt')
     navigation_data = navigation(level)
     level_x, level_y = generate_level(level)
     tiles_group.draw(screen)
