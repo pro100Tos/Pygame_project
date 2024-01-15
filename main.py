@@ -24,7 +24,7 @@ class ImageButtton:
         self.sound = None
 
         if sound_path:
-            self.sound = pygame.mixer.Sound(sound_path)
+            self.sound = load_sound(sound_path)
 
         self.is_hovered = False
 
@@ -114,6 +114,15 @@ def delete_coin_data_in_db():
     cursor.execute("DELETE FROM coins")
     conn.commit()
     conn.close()
+
+
+def load_sound(name):
+    fullname = os.path.join('sounds_data', name)
+    if not os.path.isfile(fullname):
+        print(f"Файл с музыкой '{fullname}' не найден")
+        sys.exit()
+    sound = pygame.mixer.Sound(fullname)
+    return sound
 
 
 def load_image(name, colorkey=None):
@@ -623,7 +632,6 @@ def start_game():
         screen.fill((0, 0, 0))
 
         all_sprites.draw(screen)
-        print(count_coin)
         hero.draw_run()
         all_sprites.update()
 
@@ -725,12 +733,15 @@ if __name__ == '__main__':
     size = width, height = 840, 600
     screen = pygame.display.set_mode(size)
     start_button = ImageButtton(width / 2 - (300 / 2), 100, 300, 74, "Начать игру", "buttons1.png", "buttons2.png",
-                                None)
-    record_button = ImageButtton(width / 2 - (300 / 2), 200, 300, 74, "Рекорды", "buttons1.png", "buttons2.png", None)
-    help_button = ImageButtton(width / 2 - (300 / 2), 300, 300, 74, "Помощь", "buttons1.png", "buttons2.png", None)
+                                "button_sound.mp3")
+    record_button = ImageButtton(width / 2 - (300 / 2), 200, 300, 74, "Рекорды", "buttons1.png", "buttons2.png",
+                                 "button_sound.mp3")
+    help_button = ImageButtton(width / 2 - (300 / 2), 300, 300, 74, "Помощь", "buttons1.png", "buttons2.png",
+                               "button_sound.mp3")
     exit_button = ImageButtton(width / 2 - (300 / 2), 400, 300, 74, "Выход", "buttons1.png", "buttons2.png",
-                                  None)
+                                  "button_sound.mp3")
     back_button = ImageButtton(width / 2 - (300 / 2), 380, 300, 74, "В главное меню", "buttons1.png", "buttons2.png",
-                               None)
-
+                               "button_sound.mp3")
+    main_sound = load_sound("zanzarah_sound.mp3")
+    main_sound.play()
     main_menu()
