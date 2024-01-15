@@ -448,6 +448,17 @@ class Enemy(pygame.sprite.Sprite):
             self.end = True
 
 
+def sounds_update():
+    global main_sound, game_sound, sound_flag
+    if sound_flag:
+        sound_flag = False
+        main_sound.stop()
+        game_sound.play(-1)
+    else:
+        sound_flag = True
+        main_sound.play(-1)
+        game_sound.stop()
+
 def check_end(data):
     for enemy in data:
         if enemy.end:
@@ -572,6 +583,7 @@ def main_menu():
 def start_game():
     global count_coin, remove_stack
     prepare_start_programm()
+    sounds_update()
     running = True
 
     conn = sqlite3.connect("coins.db")
@@ -643,6 +655,7 @@ def start_game():
 
 def game_over():
     global count_coin
+    sounds_update()
     running = True
     all_buttons = [back_button]
 
@@ -743,5 +756,7 @@ if __name__ == '__main__':
     back_button = ImageButtton(width / 2 - (300 / 2), 380, 300, 74, "В главное меню", "buttons1.png", "buttons2.png",
                                "button_sound.mp3")
     main_sound = load_sound("zanzarah_sound.mp3")
-    main_sound.play()
+    game_sound = load_sound("game_8bit_sound.mp3")
+    sound_flag = False
+    sounds_update()
     main_menu()
