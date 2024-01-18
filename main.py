@@ -320,7 +320,7 @@ class Hero(pygame.sprite.Sprite):
         self.right = False
 
     def draw_run(self):
-        global numbers_map
+        global numbers_map, all_enemy
         key_pressed_is = pygame.key.get_pressed()
         self.left = False
         self.right = False
@@ -336,6 +336,9 @@ class Hero(pygame.sprite.Sprite):
                         numbers_map += 1
                         if numbers_map == 3:
                             numbers_map = 0
+                        for en in all_enemy:
+                            en.kill()
+                        all_enemy.clear()
                         start_game()
                     self.rect = self.rect.move(0, -self.speed)
                 if key_pressed_is[pygame.K_DOWN] and level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == "*":
@@ -598,7 +601,7 @@ def main_menu():
 
 
 def start_game():
-    global count_coin, remove_stack, level_points, cords_hero, cords_enemy
+    global count_coin, remove_stack, level_points, cords_hero, cords_enemy, all_enemy
     prepare_start_programm()
     if count_coin == 0:
         sounds_update()
@@ -739,6 +742,7 @@ def help_menu():
 def prepare_start_programm():
     global all_sprites, tiles_group, wall_group, ladder_group, tile_images, tile_width, tile_height, title, level
     global navigation_data, level_x, level_y, remove_stack, game_maps, numbers_map, level_points
+    global cords_hero, cords_enemy
     level_points = 0
 
     all_sprites = pygame.sprite.Group()
@@ -746,6 +750,8 @@ def prepare_start_programm():
     wall_group = pygame.sprite.Group()
     ladder_group = pygame.sprite.Group()
     remove_stack = []
+    cords_hero = []
+    cords_enemy = []
 
     tile_images = {
         'wall': load_image_data_tile('brick_2.png'),
@@ -780,8 +786,6 @@ if __name__ == '__main__':
     main_sound = load_sound("zanzarah_sound.mp3")
     game_sound = load_sound("game_8bit_sound.mp3")
     game_maps = ["map.txt", "level_2.txt", "level_3.txt"]
-    cords_hero = []
-    cords_enemy = []
     numbers_map = 0
     sound_flag = False
     sounds_update()
