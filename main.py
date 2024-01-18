@@ -182,6 +182,12 @@ def generate_level(level):
                 Ladder('ladder', x, y)
             elif level[y][x] == '%':
                 Block('block', x, y)
+            elif level[y][x] == '!':
+                level[y] = level[y][:x] + "." + level[y][x + 1:]
+                cords_enemy.append((x, y))
+            elif level[y][x] == '@':
+                level[y] = level[y][:x] + "." + level[y][x + 1:]
+                cords_hero.append((x, y))
 
     # Генерация случайных местоположений монет
     for _ in range(10):
@@ -276,10 +282,12 @@ class Block(Tile):
 
 
 def spritecollide_vertical(hero, sprite_group):
-    global count_coin
+    global count_coin, level_points
     collide_list = pygame.sprite.spritecollide(hero, sprite_group, False)
     for sprite in collide_list:
         if sprite_group == coins_group and (hero.rect.y + 37) > sprite.rect.y:
+            print(1)
+            level_points += 1
             count_coin += 1
             sprite.kill()
             return True
@@ -288,7 +296,7 @@ def spritecollide_vertical(hero, sprite_group):
 
 
 class Hero(pygame.sprite.Sprite):
-    def __init__(self, *group):
+    def __init__(self, *group, x, y):
         super().__init__(*group)
         self.course = "right"
         self.image = load_image("idle.png", colorkey=-1)
@@ -297,9 +305,9 @@ class Hero(pygame.sprite.Sprite):
         self.state_l = load_image("idle_left.png", colorkey=-1)
         self.rect = self.image.get_rect()
         self.rect.height = 41
-        self.rect.x = 100
+        self.rect.x = x * 30
+        self.rect.y = y * 24 - 2
         self.speed = 5
-        self.rect.y = 50
         self.run = [load_image("Push1.png", colorkey=-1), load_image("Push2.png", colorkey=-1),
                     load_image("Push3.png", colorkey=-1), load_image("Push4.png", colorkey=-1),
                     load_image("Push5.png", colorkey=-1), load_image("Push6.png", colorkey=-1),
@@ -312,6 +320,7 @@ class Hero(pygame.sprite.Sprite):
         self.right = False
 
     def draw_run(self):
+        global numbers_map
         key_pressed_is = pygame.key.get_pressed()
         self.left = False
         self.right = False
@@ -323,6 +332,11 @@ class Hero(pygame.sprite.Sprite):
         else:
             if pygame.sprite.spritecollideany(self, ladder_group):
                 if key_pressed_is[pygame.K_UP] and level[(self.rect.y + 35) // 25][(self.rect.x + 15) // 30] == "*":
+                    if (self.rect.y + 35) // 25 == 0 and level_points >= 10:
+                        numbers_map += 1
+                        if numbers_map == 3:
+                            numbers_map = 0
+                        start_game()
                     self.rect = self.rect.move(0, -self.speed)
                 if key_pressed_is[pygame.K_DOWN] and level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == "*":
                     self.rect = self.rect.move(0, self.speed)
@@ -382,7 +396,7 @@ class Hero(pygame.sprite.Sprite):
 
 
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, *group, hero):
+    def __init__(self, *group, hero, x, y):
         super().__init__(*group)
         self.image = load_image("goblin_run1.png", colorkey=-1)
         self.animCount = 0
@@ -393,8 +407,8 @@ class Enemy(pygame.sprite.Sprite):
         self.image = pygame.transform.scale(self.image, size_player)
         self.rect = self.image.get_rect()
         self.rect.height = 41
-        self.rect.x = 300
-        self.rect.y = 510
+        self.rect.x = x * 30
+        self.rect.y = y * 24
         self.speed = 3
         self.hero = hero
         self.left = False
@@ -458,6 +472,7 @@ def sounds_update():
         sound_flag = True
         main_sound.play(-1)
         game_sound.stop()
+
 
 def check_end(data):
     for enemy in data:
@@ -553,7 +568,9 @@ def results_menu():
 
 
 def main_menu():
+    global count_coin
     running = True
+    count_coin = 0
     all_buttons = [start_button, record_button, help_button, exit_button]
 
     while running:
@@ -581,9 +598,10 @@ def main_menu():
 
 
 def start_game():
-    global count_coin, remove_stack
+    global count_coin, remove_stack, level_points, cords_hero, cords_enemy
     prepare_start_programm()
-    sounds_update()
+    if count_coin == 0:
+        sounds_update()
     running = True
 
     conn = sqlite3.connect("coins.db")
@@ -600,13 +618,14 @@ def start_game():
 
     coins_group = pygame.sprite.Group()
 
-    count_coin = 0
-
-    hero = Hero()
+    for x, y in cords_hero:
+        hero = Hero(x=x, y=y)
     all_sprites.add(hero)
-    enemy = Enemy(hero=hero)
-    all_enemy = [enemy]
-    all_sprites.add(enemy)
+    all_enemy = []
+    for x, y in cords_enemy:
+        enemy = Enemy(hero=hero, x=x, y=y)
+        all_sprites.add(enemy)
+        all_enemy.append(enemy)
 
     clock = pygame.time.Clock()
     FPS = 50
@@ -623,8 +642,10 @@ def start_game():
             if check_end(all_enemy):
                 delete_coin_data_in_db()
                 add_new_results_to_db(count_coin)
+                for en in all_enemy:
+                    en.kill()
+                all_enemy.clear()
                 hero.kill()
-                enemy.kill()
                 game_over()
 
             if event.type == pygame.KEYDOWN:
@@ -717,7 +738,8 @@ def help_menu():
 
 def prepare_start_programm():
     global all_sprites, tiles_group, wall_group, ladder_group, tile_images, tile_width, tile_height, title, level
-    global navigation_data, level_x, level_y, remove_stack
+    global navigation_data, level_x, level_y, remove_stack, game_maps, numbers_map, level_points
+    level_points = 0
 
     all_sprites = pygame.sprite.Group()
     tiles_group = pygame.sprite.Group()
@@ -734,9 +756,9 @@ def prepare_start_programm():
     tile_width, tile_height = 30, 25
 
     title = True
-    level = load_level('map.txt')
-    navigation_data = navigation(level)
+    level = load_level(game_maps[numbers_map])
     level_x, level_y = generate_level(level)
+    navigation_data = navigation(level)
     tiles_group.draw(screen)
 
 
@@ -757,6 +779,10 @@ if __name__ == '__main__':
                                "button_sound.mp3")
     main_sound = load_sound("zanzarah_sound.mp3")
     game_sound = load_sound("game_8bit_sound.mp3")
+    game_maps = ["map.txt", "level_2.txt", "level_3.txt"]
+    cords_hero = []
+    cords_enemy = []
+    numbers_map = 0
     sound_flag = False
     sounds_update()
     main_menu()
