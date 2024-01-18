@@ -380,7 +380,6 @@ class Hero(pygame.sprite.Sprite):
                 remove_stack.append(remove_block)
                 remove_block[0].kill()
 
-
     def update(self):
         if self.animCount + 1 >= 32:
             self.animCount = 0
@@ -466,14 +465,18 @@ class Enemy(pygame.sprite.Sprite):
 
 
 def sounds_update():
-    global main_sound, game_sound, sound_flag
-    if sound_flag:
-        sound_flag = False
-        main_sound.stop()
-        game_sound.play(-1)
+    global main_sound, game_sound, sound_flag, sound_play_flag
+    if sound_play_flag:
+        if sound_flag:
+            sound_flag = False
+            main_sound.stop()
+            game_sound.play(-1)
+        else:
+            sound_flag = True
+            main_sound.play(-1)
+            game_sound.stop()
     else:
-        sound_flag = True
-        main_sound.play(-1)
+        main_sound.stop()
         game_sound.stop()
 
 
@@ -571,10 +574,10 @@ def results_menu():
 
 
 def main_menu():
-    global count_coin
+    global count_coin, sound_play_flag, sound_flag
     running = True
     count_coin = 0
-    all_buttons = [start_button, record_button, help_button, exit_button]
+    all_buttons = [start_button, record_button, help_button, exit_button, music_button]
 
     while running:
         for event in pygame.event.get():
@@ -589,6 +592,10 @@ def main_menu():
 
             if event.type == pygame.USEREVENT and event.button == record_button:
                 results_menu()
+
+            if event.type == pygame.USEREVENT and event.button == music_button:
+                sound_play_flag = not sound_play_flag
+                sounds_update()
 
             work_buttons(all_buttons, event)
 
@@ -783,10 +790,12 @@ if __name__ == '__main__':
                                   "button_sound.mp3")
     back_button = ImageButtton(width / 2 - (300 / 2), 380, 300, 74, "В главное меню", "buttons1.png", "buttons2.png",
                                "button_sound.mp3")
+    music_button = ImageButtton(700, 60, 100, 100, "", "music_button.png", "music_button2.png", "button_sound.mp3")
     main_sound = load_sound("zanzarah_sound.mp3")
     game_sound = load_sound("game_8bit_sound.mp3")
     game_maps = ["map.txt", "level_2.txt", "level_3.txt"]
     numbers_map = 0
     sound_flag = False
+    sound_play_flag = True
     sounds_update()
     main_menu()
