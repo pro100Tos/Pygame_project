@@ -286,7 +286,6 @@ def spritecollide_vertical(hero, sprite_group):
     collide_list = pygame.sprite.spritecollide(hero, sprite_group, False)
     for sprite in collide_list:
         if sprite_group == coins_group and (hero.rect.y + 37) > sprite.rect.y:
-            print(1)
             level_points += 1
             count_coin += 1
             sprite.kill()
@@ -343,13 +342,13 @@ class Hero(pygame.sprite.Sprite):
                     self.rect = self.rect.move(0, -self.speed)
                 if key_pressed_is[pygame.K_DOWN] and level[(self.rect.y + 41) // 25][(self.rect.x + 15) // 30] == "*":
                     self.rect = self.rect.move(0, self.speed)
-            if key_pressed_is[pygame.K_LEFT]:
+            if key_pressed_is[pygame.K_LEFT] and (self.rect.x + 15 - self.speed) // 30 > -1:
                 self.rect = self.rect.move(-self.speed, 0)
                 if spritecollide_vertical(self, wall_group):
                     self.rect = self.rect.move(self.speed, 0)
                 self.left = True
                 self.course = "left"
-            if key_pressed_is[pygame.K_RIGHT]:
+            if key_pressed_is[pygame.K_RIGHT] and (self.rect.x + 15 + self.speed) // 30 < len(level[0]):
                 self.rect = self.rect.move(self.speed, 0)
                 if spritecollide_vertical(self, wall_group):
                     self.rect = self.rect.move(-self.speed, 0)
