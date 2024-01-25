@@ -543,7 +543,7 @@ def results_menu():
     text = "5 Лучших результатов:"
     for points in get_results():
         if points > 1 or points == 0:
-            if points < 5:
+            if points < 5 and points != 0:
                 text += "\n" + "собранно " + str(points) + " подарка"
             else:
                 text += "\n" + "собранно " + str(points) + " подарков"
